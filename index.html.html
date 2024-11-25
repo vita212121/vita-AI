@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inclusive AI App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        header {
+            background-color: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            padding: 20px;
+        }
+        section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        section h2 {
+            color: #007bff;
+        }
+        .feature {
+            margin: 10px 0;
+        }
+        .feature input, .feature button, .feature textarea {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #007bff;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        footer {
+            text-align: center;
+            padding: 10px;
+            background: #007bff;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Inclusive AI App</h1>
+        <p>Enhancing lives with AI-powered accessibility solutions</p>
+    </header>
+
+    <div class="container">
+        <!-- Blind Users Section -->
+        <section>
+            <h2>For Blind Users</h2>
+            <p>Upload an image to hear its description.</p>
+            <div class="feature">
+                <input type="file" id="imageUpload" accept="image/*">
+                <button onclick="analyzeImage()">Analyze Image</button>
+                <button onclick="stopAudio()">Stop Audio</button>
+            </div>
+            <p id="imageResponse"></p>
+        </section>
+
+        <!-- Deaf Users Section -->
+        <section>
+            <h2>For Deaf Users</h2>
+            <p>Convert spoken language into text in real-time.</p>
+            <div class="feature">
+                <button onclick="startSpeechToText()">Start Speech-to-Text</button>
+                <p id="speechOutput" style="background: #f1f1f1; padding: 10px;"></p>
+            </div>
+        </section>
+
+        <!-- Mute Users Section -->
+        <section>
+            <h2>For Mute Users</h2>
+            <p>Type your message, and let the app speak it for you.</p>
+            <div class="feature">
+                <textarea id="textInput" placeholder="Type your message here..."></textarea>
+                <button onclick="convertTextToSpeech()">Speak Message</button>
+            </div>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Inclusive AI App. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Analyze Image for Blind Users
+        async function analyzeImage() {
+            const fileInput = document.getElementById("imageUpload");
+            const responseElement = document.getElementById("imageResponse");
+
+            if (fileInput.files.length === 0) {
+                responseElement.textContent = "Please upload an image.";
+                speakText("Please upload an image.");
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append("image", file);
+
+            const apiKey = "acc_8c869d38ba807f2"; // API Key provided
+            const apiSecret = "973a8df9d86e39e04c46e8da27764e01"; // API Secret provided
+            const apiUrl = "https://api.imagga.com/v2/tags"; // Imagga API URL for image tags
+
+            responseElement.textContent = "Processing image...";
+            speakText("Processing image...");
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Basic ${btoa(apiKey + ":" + apiSecret)}`
+                    },
+                    body: formData
+                });
+
+                // Check if the response is successful
+                if (!response.ok) {
+                    throw new Error("Failed to fetch image analysis. HTTP Status: " + response.status);
+                }
+
+                const data = await response.json();
+
+                // Log the response data for debugging
+                console.log("API Response:", data);
+
+                if (data.result && data.result.tags && data.result.tags.length > 0) {
+                    // Define the objects you are interested in (e.g., "phone", "wall", "window", "refrigerator")
+                    const objectsOfInterest = ["phone", "wall", "window", "refrigerator", "chair", "table", "door", "tv", "computer", "lamp"];
+
+                    // Filter the tags and only keep the relevant ones
+                    const relevantTags = data.result.tags.filter(tag => objectsOfInterest.includes(tag.tag.en.toLowerCase()));
+
+                    if (relevantTags.length > 0) {
+                        const description = relevantTags.map(tag => tag.tag.en).join(", ");
+                        responseElement.textContent = description;
+                        speakText("Image contains: " + description);
+                    } else {
+                        responseElement.textContent = "No recognizable objects found.";
+                        speakText("No recognizable objects found.");
+                    }
+                } else {
+                    responseElement.textContent = "No description available.";
+                    speakText("No description available.");
+                }
+            } catch (error) {
+                console.error("Error during image processing:", error);  // Log the error details
+                responseElement.textContent = "Error processing image: " + error.message;
+                speakText("Error processing image.");
+            }
+        }
+
+        // Stop Audio for Blind Users
+        function stopAudio() {
+            window.speechSynthesis.cancel();
+        }
+
+        // Start Speech-to-Text for Deaf Users
+        function startSpeechToText() {
+            const outputElement = document.getElementById("speechOutput");
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = "en-US";
+            recognition.interimResults = false;
+            recognition.start();
+
+            recognition.onresult = (event) => {
+                outputElement.textContent = event.results[0][0].transcript;
+            };
+
+            recognition.onerror = () => {
+                outputElement.textContent = "Error recognizing speech.";
+            };
+        }
+
+        // Text-to-Speech for Mute Users
+        function convertTextToSpeech() {
+            const text = document.getElementById("textInput").value.trim();
+            if (!text) {
+                alert("Please enter some text.");
+                return;
+            }
+
+            const synth = window.speechSynthesis;
+            const utterance = new SpeechSynthesisUtterance(text);
+            synth.speak(utterance);
+        }
+
+        // Speak Text for Blind Users
+        function speakText(text) {
+            const synth = window.speechSynthesis;
+            const utterance = new SpeechSynthesisUtterance(text);
+            synth.speak(utterance);
+        }
+    </script>
+<footer><iframe width="350" height="430" allow="microphone;" src="https://console.dialogflow.com/api-client/demo/embedded/66defd9c-f98f-4d8d-999b-c167890813f2"></iframe></footer>
+</body>
+</html>
